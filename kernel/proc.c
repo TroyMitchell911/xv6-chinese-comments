@@ -485,6 +485,8 @@ sched(void)
   struct proc *p = myproc();
   // 判断持有锁的是否是当前cpu
   // todo: 什么时候持有的锁呢
+  // 如果是yield函数进来的，那么是yield函数持有的锁
+  // 如果不是呢，谁持有的
   if(!holding(&p->lock))
     panic("sched p->lock");
   // 如果cpu关中断的深度不为1

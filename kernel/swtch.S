@@ -1,12 +1,13 @@
 # Context switch
 #
 #   void swtch(struct context *old, struct context *new);
-# 
-# Save current registers in old. Load from new.	
+#
+# Save current registers in old. Load from new.
 
 
 .globl swtch
 swtch:
+	# 将当前寄存器状态放入第一个参数指向的地址内存
         sd ra, 0(a0)
         sd sp, 8(a0)
         sd s0, 16(a0)
@@ -22,6 +23,9 @@ swtch:
         sd s10, 96(a0)
         sd s11, 104(a0)
 
+	# 从第二个参数中加载出来寄存器的值
+	# todo：第二个参数的寄存器值是哪里来的
+	# 这里把ra读取出来了，所以ret的时候返回的是新的进程
         ld ra, 0(a1)
         ld sp, 8(a1)
         ld s0, 16(a1)
@@ -36,7 +40,7 @@ swtch:
         ld s9, 88(a1)
         ld s10, 96(a1)
         ld s11, 104(a1)
-        
+
         ret
 
-	
+

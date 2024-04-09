@@ -27,6 +27,7 @@
 - spainlock.c全注释
 - swtch.S全注释
 - 搞清楚了进程如何切换的（还没搞清楚下文是哪里来的）
+- kalloc全注释
 
 # TODO
 

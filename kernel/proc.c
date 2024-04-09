@@ -48,12 +48,15 @@ void
 procinit(void)
 {
   struct proc *p;
-
+  // 初始化锁
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
+  	  // 为每个进程分配内核堆栈的地址
+  	  // 2页大小，其中一页使用，一页作为保护页
+  	  // todo: 保护页不用初始化吗
       p->kstack = KSTACK((int) (p - proc));
   }
 }

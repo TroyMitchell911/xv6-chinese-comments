@@ -324,6 +324,7 @@ static inline void
 sfence_vma()
 {
   // the zero, zero means flush all TLB entries.
+  // 用0来填充所有TLB条目
   asm volatile("sfence.vma zero, zero");
 }
 
@@ -347,8 +348,10 @@ typedef uint64 *pagetable_t; // 512 PTEs
 #define PTE_U (1L << 4) // user can access
 
 // shift a physical address to the right place for a PTE.
+// todo: 以下这两个宏只有内核能用吧
+// 物理地址到pte的转换
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
-
+// pte转换成物理地址
 #define PTE2PA(pte) (((pte) >> 10) << 12)
 
 #define PTE_FLAGS(pte) ((pte) & 0x3FF)

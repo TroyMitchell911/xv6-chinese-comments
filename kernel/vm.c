@@ -20,32 +20,39 @@ pagetable_t
 kvmmake(void)
 {
   pagetable_t kpgtbl;
-
+  // 申请4k空间
   kpgtbl = (pagetable_t) kalloc();
+  // 清零
   memset(kpgtbl, 0, PGSIZE);
 
   // uart registers
+  // 串口0的虚拟地址与物理地址对应映射
   kvmmap(kpgtbl, UART0, UART0, PGSIZE, PTE_R | PTE_W);
 
   // virtio mmio disk interface
+  // 磁盘的虚拟地址与物理地址对应映射
   kvmmap(kpgtbl, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
 
   // PLIC
+  // plic的虚拟地址与物理地址对应映射
   kvmmap(kpgtbl, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
 
   // map kernel text executable and read-only.
+  // 映射内核代码段
   kvmmap(kpgtbl, KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
 
   // map kernel data and the physical RAM we'll make use of.
+  // 映射内核数据段和物理ram
   kvmmap(kpgtbl, (uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
 
   // map the trampoline for trap entry/exit to
   // the highest virtual address in the kernel.
+  // 映射蹦床到最高地址处
   kvmmap(kpgtbl, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
 
   // allocate and map a kernel stack for each process.
   proc_mapstacks(kpgtbl);
-  
+
   return kpgtbl;
 }
 
@@ -53,6 +60,7 @@ kvmmake(void)
 void
 kvminit(void)
 {
+  // 创建内核页表
   kernel_pagetable = kvmmake();
 }
 
@@ -62,11 +70,13 @@ void
 kvminithart()
 {
   // wait for any previous writes to the page table memory to finish.
+  // 填充TLB为0，我不知道上面的注释为什么是等待之前写页表操作完成
   sfence_vma();
-
+  // 将当前页表寄存器写成内核页表地址
   w_satp(MAKE_SATP(kernel_pagetable));
 
   // flush stale entries from the TLB.
+  // 还是刷新TLB
   sfence_vma();
 }
 
@@ -82,6 +92,8 @@ kvminithart()
 //   21..29 -- 9 bits of level-1 index.
 //   12..20 -- 9 bits of level-0 index.
 //    0..11 -- 12 bits of byte offset within the page.
+// 该函数最多会建立三级页表
+// 并且返回最后级页表的pte项地址
 pte_t *
 walk(pagetable_t pagetable, uint64 va, int alloc)
 {
@@ -89,13 +101,17 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     panic("walk");
 
   for(int level = 2; level > 0; level--) {
+  	// 获取到pte地址，先从最高的9位索引开始
+  	// (肯定需要加上12，因为最低12是offset)
     pte_t *pte = &pagetable[PX(level, va)];
     if(*pte & PTE_V) {
+		// 如果pte存在的话 转换成物理地址
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
         return 0;
       memset(pagetable, 0, PGSIZE);
+	  // 将该页表项写入物理地址加上可以访问标志位
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
@@ -128,6 +144,9 @@ walkaddr(pagetable_t pagetable, uint64 va)
 // add a mapping to the kernel page table.
 // only used when booting.
 // does not flush TLB or enable paging.
+// 添加内核页表映射
+// 仅使用在启动的时候
+// 不刷新TLB或者使能页表功能
 void
 kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 {
@@ -139,25 +158,40 @@ kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 // physical addresses starting at pa. va and size might not
 // be page-aligned. Returns 0 on success, -1 if walk() couldn't
 // allocate a needed page-table page.
+// 为从 va 开始的虚拟地址创建 PTE
+// 从 pa 开始的物理地址。
+// va 和 size 可能不是页面对齐的。
+// 成功时返回 0，如果 walk() 无法分配所需的页表页面，
+// 则返回 -1。
+
 int
 mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 {
   uint64 a, last;
   pte_t *pte;
 
+  // 大小不能为0
   if(size == 0)
     panic("mappages: size");
-  
+
+  // 虚拟地址以页面为单位向下对齐 比如我们要在0x1000
   a = PGROUNDDOWN(va);
+  // 计算虚拟地址结尾
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
     if((pte = walk(pagetable, a, 1)) == 0)
+		// 如果寻找不到虚拟地址a则返回-1
+		// 找到的话pte会被返回一个申请到的页表项地址
       return -1;
+	// 判断页表项是否存在
     if(*pte & PTE_V)
       panic("mappages: remap");
+	// pte放上物理地址和标志位
     *pte = PA2PTE(pa) | perm | PTE_V;
+	// 映射完毕
     if(a == last)
       break;
+	// 再映射一页
     a += PGSIZE;
     pa += PGSIZE;
   }
@@ -338,7 +372,7 @@ void
 uvmclear(pagetable_t pagetable, uint64 va)
 {
   pte_t *pte;
-  
+
   pte = walk(pagetable, va, 0);
   if(pte == 0)
     panic("uvmclear");

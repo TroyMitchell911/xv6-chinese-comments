@@ -35,10 +35,13 @@ proc_mapstacks(pagetable_t kpgtbl)
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++) {
+  	// 为每个进程都申请一页物理内存
     char *pa = kalloc();
     if(pa == 0)
       panic("kalloc");
+	// 获取该进程栈的虚拟地址
     uint64 va = KSTACK((int) (p - proc));
+	// 将虚拟地址和物理地址添加映射
     kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   }
 }
@@ -56,7 +59,6 @@ procinit(void)
       p->state = UNUSED;
   	  // 为每个进程分配内核堆栈的地址
   	  // 2页大小，其中一页使用，一页作为保护页
-  	  // todo: 保护页不用初始化吗
       p->kstack = KSTACK((int) (p - proc));
   }
 }

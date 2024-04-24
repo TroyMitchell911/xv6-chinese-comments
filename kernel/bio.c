@@ -63,21 +63,27 @@ bget(uint dev, uint blockno)
   acquire(&bcache.lock);
 
   // Is the block already cached?
+  // 判断这个块是否已经被缓存了
   for(b = bcache.head.next; b != &bcache.head; b = b->next){
     if(b->dev == dev && b->blockno == blockno){
       b->refcnt++;
       release(&bcache.lock);
+	// 获取睡眠锁
       acquiresleep(&b->lock);
+	// 返回被锁定的buf
       return b;
     }
   }
 
+  // 如果还没有缓存 就使用LRU算法寻找最近没使用的buffer
   // Not cached.
   // Recycle the least recently used (LRU) unused buffer.
+  // 从尾部开始扫描 因为尾部的是用的最少的 这点在relse函数里面可以看到被释放的buf移动到了头部
   for(b = bcache.head.prev; b != &bcache.head; b = b->prev){
     if(b->refcnt == 0) {
       b->dev = dev;
       b->blockno = blockno;
+	// 设置为没缓存
       b->valid = 0;
       b->refcnt = 1;
       release(&bcache.lock);
@@ -96,7 +102,9 @@ bread(uint dev, uint blockno)
 
   b = bget(dev, blockno);
   if(!b->valid) {
+  	// 如果没缓存的话 就从磁盘加载进来
     virtio_disk_rw(b, 0);
+	// 设置为已经缓存了
     b->valid = 1;
   }
   return b;
@@ -125,6 +133,7 @@ brelse(struct buf *b)
   b->refcnt--;
   if (b->refcnt == 0) {
     // no one is waiting for it.
+    // 将b挪动到链表头部，因为他free了哈哈
     b->next->prev = b->prev;
     b->prev->next = b->next;
     b->next = bcache.head.next;
@@ -132,7 +141,7 @@ brelse(struct buf *b)
     bcache.head.next->prev = b;
     bcache.head.next = b;
   }
-  
+
   release(&bcache.lock);
 }
 

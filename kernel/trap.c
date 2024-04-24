@@ -136,8 +136,8 @@ kerneltrap()
 {
   int which_dev = 0;
   // 被中断的地址放入epc变量
-  epc = r_sepc();
-  uint64 s
+  uint64 sepc = r_sepc();
+
   uint64 sstatus = r_sstatus();
   // 读取trap发生的原因
   uint64 scause = r_scause();

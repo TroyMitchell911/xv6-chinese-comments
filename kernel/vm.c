@@ -242,6 +242,9 @@ uvmcreate()
 // Load the user initcode into address 0 of pagetable,
 // for the very first process.
 // sz must be less than a page.
+// 加载用户初始化代码到0地址处
+// 这个主要是用于第一个程序
+// 代码大小必须小于一页
 void
 uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
 {
@@ -249,9 +252,12 @@ uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
 
   if(sz >= PGSIZE)
     panic("uvmfirst: more than a page");
+  // 申请一页内存
   mem = kalloc();
   memset(mem, 0, PGSIZE);
+  // 映射一页，将虚拟地址0地址映射到mem物理内存地址上
   mappages(pagetable, 0, PGSIZE, (uint64)mem, PTE_W|PTE_R|PTE_X|PTE_U);
+  // 内存复制 src复制到mem
   memmove(mem, src, sz);
 }
 

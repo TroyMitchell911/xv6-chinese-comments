@@ -54,6 +54,7 @@ struct dinode {
 #define DIRSIZ 14
 
 struct dirent {
+// 为0代表该目录项空闲
   ushort inum;
   char name[DIRSIZ];
 };

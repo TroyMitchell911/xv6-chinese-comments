@@ -30,7 +30,7 @@ struct file*
 filealloc(void)
 {
   struct file *f;
-
+  // 查找一个可用的文件描述符
   acquire(&ftable.lock);
   for(f = ftable.file; f < ftable.file + NFILE; f++){
     if(f->ref == 0){
@@ -62,17 +62,20 @@ fileclose(struct file *f)
   struct file ff;
 
   acquire(&ftable.lock);
+  // close的时候引用不能小于1
   if(f->ref < 1)
     panic("fileclose");
+  // 如果不等于0的话 就释放返回就行了
   if(--f->ref > 0){
     release(&ftable.lock);
     return;
   }
+  // 文件描述符引用为0 该释放了
   ff = *f;
   f->ref = 0;
   f->type = FD_NONE;
   release(&ftable.lock);
-
+// 根据类型的不同 来进行不同的销毁方式
   if(ff.type == FD_PIPE){
     pipeclose(ff.pipe, ff.writable);
   } else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
@@ -84,12 +87,13 @@ fileclose(struct file *f)
 
 // Get metadata about file f.
 // addr is a user virtual address, pointing to a struct stat.
+// 获取文件元信息
 int
 filestat(struct file *f, uint64 addr)
 {
   struct proc *p = myproc();
   struct stat st;
-  
+
   if(f->type == FD_INODE || f->type == FD_DEVICE){
     ilock(f->ip);
     stati(f->ip, &st);
@@ -103,6 +107,7 @@ filestat(struct file *f, uint64 addr)
 
 // Read from file f.
 // addr is a user virtual address.
+// 根据不同类型读取
 int
 fileread(struct file *f, uint64 addr, int n)
 {
@@ -131,6 +136,7 @@ fileread(struct file *f, uint64 addr, int n)
 
 // Write to file f.
 // addr is a user virtual address.
+// 写文件
 int
 filewrite(struct file *f, uint64 addr, int n)
 {

@@ -17,10 +17,12 @@ struct file {
 struct inode {
   uint dev;           // Device number
   uint inum;          // Inode number
+  // 引用计数
   int ref;            // Reference count
   struct sleeplock lock; // protects everything below here
   int valid;          // inode has been read from disk?
 
+// 下面的从disk上的inode结构体来的
   short type;         // copy of disk inode
   short major;
   short minor;

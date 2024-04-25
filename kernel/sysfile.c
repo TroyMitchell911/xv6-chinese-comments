@@ -85,7 +85,7 @@ sys_write(void)
   struct file *f;
   int n;
   uint64 p;
-  
+
   argaddr(1, &p);
   argint(2, &n);
   if(argfd(0, 0, &f) < 0)
@@ -126,29 +126,34 @@ sys_link(void)
   char name[DIRSIZ], new[MAXPATH], old[MAXPATH];
   struct inode *dp, *ip;
 
+// 获取原文件路径和新文件路径
   if(argstr(0, old, MAXPATH) < 0 || argstr(1, new, MAXPATH) < 0)
     return -1;
-
+// 开始操作 要写了
   begin_op();
+  // 获取该文件inode
   if((ip = namei(old)) == 0){
     end_op();
     return -1;
   }
-
+// inode加锁
   ilock(ip);
+  // 不能link文件夹
   if(ip->type == T_DIR){
     iunlockput(ip);
     end_op();
     return -1;
   }
-
+// 链接计数且更新
   ip->nlink++;
   iupdate(ip);
   iunlock(ip);
-
+// 寻找新路径的父目录
   if((dp = nameiparent(new, name)) == 0)
     goto bad;
+  // 加锁
   ilock(dp);
+  // 如果跨盘操作或者创建一个新的目录项失败
   if(dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0){
     iunlockput(dp);
     goto bad;
@@ -412,7 +417,7 @@ sys_chdir(void)
   char path[MAXPATH];
   struct inode *ip;
   struct proc *p = myproc();
-  
+
   begin_op();
   if(argstr(0, path, MAXPATH) < 0 || (ip = namei(path)) == 0){
     end_op();

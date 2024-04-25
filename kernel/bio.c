@@ -133,7 +133,7 @@ brelse(struct buf *b)
   b->refcnt--;
   if (b->refcnt == 0) {
     // no one is waiting for it.
-    // 将b挪动到链表头部，因为他free了哈哈
+    // 将b挪动到链表尾部，因为他free了哈哈
     b->next->prev = b->prev;
     b->prev->next = b->next;
     b->next = bcache.head.next;

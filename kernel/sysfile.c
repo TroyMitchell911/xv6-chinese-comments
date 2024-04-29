@@ -252,13 +252,14 @@ create(char *path, short type, short major, short minor)
 {
   struct inode *ip, *dp;
   char name[DIRSIZ];
-
+// 获取父目录路径 存放在path 文件名存在在name 返回inode
   if((dp = nameiparent(path, name)) == 0)
     return 0;
 
   ilock(dp);
-
+// 在dp这个目录中搜索文件名为name的 不获取偏移
   if((ip = dirlookup(dp, name, 0)) != 0){
+  	// 如果搜索到了 就不需要创建直接返回这个inode
     iunlockput(dp);
     ilock(ip);
     if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
@@ -266,29 +267,31 @@ create(char *path, short type, short major, short minor)
     iunlockput(ip);
     return 0;
   }
-
+// 申请一个inode
   if((ip = ialloc(dp->dev, type)) == 0){
     iunlockput(dp);
     return 0;
   }
-
+// 这里就是为新的inode赋值
   ilock(ip);
   ip->major = major;
   ip->minor = minor;
   ip->nlink = 1;
   iupdate(ip);
-
+// 如果是文件夹类型
   if(type == T_DIR){  // Create . and .. entries.
     // No ip->nlink++ for ".": avoid cyclic ref count.
+    // 创建.和..的链接
     if(dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
       goto fail;
   }
-
+// 创建父目录对新创建的文件或者文件夹的链接
   if(dirlink(dp, name, ip->inum) < 0)
     goto fail;
 
   if(type == T_DIR){
     // now that success is guaranteed:
+    // 链接..
     dp->nlink++;  // for ".."
     iupdate(dp);
   }
@@ -314,13 +317,14 @@ sys_open(void)
   struct file *f;
   struct inode *ip;
   int n;
-
+// 获取模式
   argint(1, &omode);
+// 获取打开文件的路径
   if((n = argstr(0, path, MAXPATH)) < 0)
     return -1;
-
+// 开始log操作
   begin_op();
-
+// 如果有创建选项
   if(omode & O_CREATE){
     ip = create(path, T_FILE, 0, 0);
     if(ip == 0){
@@ -328,24 +332,26 @@ sys_open(void)
       return -1;
     }
   } else {
+  // 获取该文件对应的inode
     if((ip = namei(path)) == 0){
       end_op();
       return -1;
     }
     ilock(ip);
+	// TODO: 打开文件夹只能只读？
     if(ip->type == T_DIR && omode != O_RDONLY){
       iunlockput(ip);
       end_op();
       return -1;
     }
   }
-
+// 判断是否超出了设备的major
   if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
     iunlockput(ip);
     end_op();
     return -1;
   }
-
+//申请一个文件描述符和fd描述符
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
     if(f)
       fileclose(f);
@@ -353,18 +359,21 @@ sys_open(void)
     end_op();
     return -1;
   }
-
+// 设置设备
   if(ip->type == T_DEVICE){
     f->type = FD_DEVICE;
     f->major = ip->major;
   } else {
+  	// 设置文件 新打开的文件偏移量是0
     f->type = FD_INODE;
     f->off = 0;
   }
+  // 指向inode
   f->ip = ip;
+  // 设置文件描述符的权限
   f->readable = !(omode & O_WRONLY);
   f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
-
+// 如果文件已经存在 就清空
   if((omode & O_TRUNC) && ip->type == T_FILE){
     itrunc(ip);
   }

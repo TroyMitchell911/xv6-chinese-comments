@@ -31,8 +31,9 @@ static void
 readsb(int dev, struct superblock *sb)
 {
   struct buf *bp;
-
+//第一个块被用作超级块
   bp = bread(dev, 1);
+//内存复制
   memmove(sb, bp->data, sizeof(*sb));
   brelse(bp);
 }
@@ -40,9 +41,12 @@ readsb(int dev, struct superblock *sb)
 // Init fs
 void
 fsinit(int dev) {
+// 读取一个超级块
   readsb(dev, &sb);
+// 判断是否读取正确
   if(sb.magic != FSMAGIC)
     panic("invalid file system");
+  // 初始化日志层
   initlog(dev, &sb);
 }
 
@@ -51,7 +55,7 @@ static void
 bzero(int dev, int bno)
 {
   struct buf *bp;
-
+//清空一个块
   bp = bread(dev, bno);
   memset(bp->data, 0, BSIZE);
   log_write(bp);

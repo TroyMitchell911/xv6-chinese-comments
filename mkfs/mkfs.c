@@ -104,39 +104,41 @@ main(int argc, char *argv[])
 
   printf("nmeta %d (boot, super, log blocks %u inode blocks %u, bitmap blocks %u) blocks %d total %d\n",
          nmeta, nlog, ninodeblocks, nbitmap, nblocks, FSSIZE);
-
+//可空闲分配的块
   freeblock = nmeta;     // the first free block that we can allocate
-
+//清空块
   for(i = 0; i < FSSIZE; i++)
     wsect(i, zeroes);
-
+//写入超级块
   memset(buf, 0, sizeof(buf));
   memmove(buf, &sb, sizeof(sb));
   wsect(1, buf);
-
+//申请根目录的inode
   rootino = ialloc(T_DIR);
   assert(rootino == ROOTINO);
-
+//为根目录添加一个目录 指向根目录inode
   bzero(&de, sizeof(de));
   de.inum = xshort(rootino);
   strcpy(de.name, ".");
   iappend(rootino, &de, sizeof(de));
 
+  //为根目录添加一个目录 指向根目录inode
   bzero(&de, sizeof(de));
   de.inum = xshort(rootino);
   strcpy(de.name, "..");
   iappend(rootino, &de, sizeof(de));
-
+// 读取所有要写入文件系统的文件
   for(i = 2; i < argc; i++){
     // get rid of "user/"
     char *shortname;
+	// 跳过user/
     if(strncmp(argv[i], "user/", 5) == 0)
       shortname = argv[i] + 5;
     else
       shortname = argv[i];
-    
-    assert(index(shortname, '/') == 0);
 
+    assert(index(shortname, '/') == 0);
+// 打开文件
     if((fd = open(argv[i], 0)) < 0)
       die(argv[i]);
 
@@ -144,16 +146,17 @@ main(int argc, char *argv[])
     // The binaries are named _rm, _cat, etc. to keep the
     // build operating system from trying to execute them
     // in place of system binaries like rm and cat.
+    // 跳过_
     if(shortname[0] == '_')
       shortname += 1;
-
+// 为该文件分配inode
     inum = ialloc(T_FILE);
-
+//将文件都添加到根目录下
     bzero(&de, sizeof(de));
     de.inum = xshort(inum);
     strncpy(de.name, shortname, DIRSIZ);
     iappend(rootino, &de, sizeof(de));
-
+// 将文件内容添加到文件对应的inode下
     while((cc = read(fd, buf, sizeof(buf))) > 0)
       iappend(inum, buf, cc);
 
@@ -161,6 +164,7 @@ main(int argc, char *argv[])
   }
 
   // fix size of root inode dir
+  // 向上BSIZE对齐
   rinode(rootino, &din);
   off = xint(din.size);
   off = ((off/BSIZE) + 1) * BSIZE;

@@ -370,11 +370,14 @@ iput(struct inode *ip)
 
     // ip->ref == 1 means no other process can have ip locked,
     // so this acquiresleep() won't block (or deadlock).
+    // 因为ip->ref = 1代表只有一个进程获取了该锁 并且一定是当前调用iput的进程
+    // 所以不会造成死锁 这一行也不会锁定
     acquiresleep(&ip->lock);
 
     release(&itable.lock);
-
+// 清空该inode对应的块的内容
     itrunc(ip);
+// 清空类型且更新
     ip->type = 0;
     iupdate(ip);
     ip->valid = 0;
@@ -383,8 +386,9 @@ iput(struct inode *ip)
 
     acquire(&itable.lock);
   }
-
+// 减少引用
   ip->ref--;
+  // 释放
   release(&itable.lock);
 }
 

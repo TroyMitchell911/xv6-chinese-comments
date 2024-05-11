@@ -338,7 +338,7 @@ sys_open(void)
       return -1;
     }
     ilock(ip);
-	// TODO: 打开文件夹只能只读？
+	// TODO: 这里需要修改成不能打开文件夹
     if(ip->type == T_DIR && omode != O_RDONLY){
       iunlockput(ip);
       end_op();
@@ -408,9 +408,12 @@ sys_mknod(void)
   int major, minor;
 
   begin_op();
+  // 获取major和minor
   argint(1, &major);
   argint(2, &minor);
+  // 获取字符串名字
   if((argstr(0, path, MAXPATH)) < 0 ||
+  	// 创建一个文件
      (ip = create(path, T_DEVICE, major, minor)) == 0){
     end_op();
     return -1;
@@ -451,35 +454,42 @@ sys_exec(void)
   char path[MAXPATH], *argv[MAXARG];
   int i;
   uint64 uargv, uarg;
-
+// 获取参数1的地址
   argaddr(1, &uargv);
+//获取参数0的路径
   if(argstr(0, path, MAXPATH) < 0) {
     return -1;
   }
+//  清空指针数组
   memset(argv, 0, sizeof(argv));
   for(i=0;; i++){
+// 如果超出数组大小则失败
     if(i >= NELEM(argv)){
       goto bad;
     }
+// 获取参数虚拟地址对应的物理地址
     if(fetchaddr(uargv+sizeof(uint64)*i, (uint64*)&uarg) < 0){
       goto bad;
     }
+	// 如果获取物理地址失败
     if(uarg == 0){
       argv[i] = 0;
       break;
     }
+//	为指针数组申请一页内存
     argv[i] = kalloc();
     if(argv[i] == 0)
       goto bad;
+//	复制数据到argv中申请的内存
     if(fetchstr(uarg, argv[i], PGSIZE) < 0)
       goto bad;
   }
-
+//执行exec
   int ret = exec(path, argv);
-
+//挨个释放内存
   for(i = 0; i < NELEM(argv) && argv[i] != 0; i++)
     kfree(argv[i]);
-
+//返回
   return ret;
 
  bad:

@@ -12,8 +12,10 @@ int
 fetchaddr(uint64 addr, uint64 *ip)
 {
   struct proc *p = myproc();
+// 地址大小不能超过进程所占用的大小
   if(addr >= p->sz || addr+sizeof(uint64) > p->sz) // both tests needed, in case of overflow
     return -1;
+//拷贝虚拟地址对应的物理地址到ip里面
   if(copyin(p->pagetable, (char *)ip, addr, sizeof(*ip)) != 0)
     return -1;
   return 0;
@@ -21,6 +23,8 @@ fetchaddr(uint64 addr, uint64 *ip)
 
 // Fetch the nul-terminated string at addr from the current process.
 // Returns length of string, not including nul, or -1 for error.
+//获取一个以null结尾的字符串到buf,如果没遇见null,则由max限制大�
+// 返回字符串长度,如果失败返回-1
 int
 fetchstr(uint64 addr, char *buf, int max)
 {

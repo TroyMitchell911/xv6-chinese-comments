@@ -379,10 +379,11 @@ void
 uvmclear(pagetable_t pagetable, uint64 va)
 {
   pte_t *pte;
-
+// 寻找PTE
   pte = walk(pagetable, va, 0);
   if(pte == 0)
     panic("uvmclear");
+  // 不允许用户访问
   *pte &= ~PTE_U;
 }
 

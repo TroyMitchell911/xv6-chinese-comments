@@ -112,7 +112,7 @@ int
 fileread(struct file *f, uint64 addr, int n)
 {
   int r = 0;
-
+//判断是否可读
   if(f->readable == 0)
     return -1;
 
@@ -124,6 +124,7 @@ fileread(struct file *f, uint64 addr, int n)
     r = devsw[f->major].read(1, addr, n);
   } else if(f->type == FD_INODE){
     ilock(f->ip);
+	//从虚拟地址中读取
     if((r = readi(f->ip, 1, addr, f->off, n)) > 0)
       f->off += r;
     iunlock(f->ip);
@@ -158,6 +159,7 @@ filewrite(struct file *f, uint64 addr, int n)
     // and 2 blocks of slop for non-aligned writes.
     // this really belongs lower down, since writei()
     // might be writing a device like the console.
+    // 防止超出块 因为我们一次log最大操作的块已经确定好了
     int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
     int i = 0;
     while(i < n){

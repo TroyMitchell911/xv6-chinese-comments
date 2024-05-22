@@ -59,8 +59,7 @@ void
 runcmd(struct cmd *cmd)
 {
   int p[2];
-  struct backcmd *bcmd;
-  struct execcmd *ecmd;
+  struct backcmd *bcmd;  struct execcmd *ecmd;
   struct listcmd *lcmd;
   struct pipecmd *pcmd;
   struct redircmd *rcmd;
@@ -160,11 +159,14 @@ main(void)
   while(getcmd(buf, sizeof(buf)) >= 0){
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Chdir must be called by the parent, not the child.
+//      跳过回车
       buf[strlen(buf)-1] = 0;  // chop \n
-      if(chdir(buf+3) < 0)
+//		buf+3跳过"cd "
+	  if(chdir(buf+3) < 0)
         fprintf(2, "cannot cd %s\n", buf+3);
       continue;
     }
+//	fork一个进程 返回pid
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait(0);
@@ -270,8 +272,10 @@ gettoken(char **ps, char *es, char **q, char **eq)
   int ret;
 
   s = *ps;
+  // 清除特殊符号
   while(s < es && strchr(whitespace, *s))
     s++;
+  // 保存token开始地址
   if(q)
     *q = s;
   ret = *s;
@@ -314,9 +318,12 @@ peek(char **ps, char *es, char *toks)
   char *s;
 
   s = *ps;
+  // 去掉特殊字符
   while(s < es && strchr(whitespace, *s))
     s++;
+  // 设置为不是特殊字符开头的指针
   *ps = s;
+  // 如果s指向不是0并且toks中含有这个字符 返回1 否则返回0
   return *s && strchr(toks, *s);
 }
 
@@ -329,15 +336,19 @@ struct cmd*
 parsecmd(char *s)
 {
   char *es;
+//  存放命令类型
   struct cmd *cmd;
-
+//置末尾
   es = s + strlen(s);
   cmd = parseline(&s, es);
+  // 判断s是不是指向\0
   peek(&s, es, "");
+  // 如果s不指向末尾 也就是说 不指向最后
   if(s != es){
     fprintf(2, "leftovers: %s\n", s);
     panic("syntax");
   }
+  // 清空？
   nulterminate(cmd);
   return cmd;
 }
@@ -348,10 +359,13 @@ parseline(char **ps, char *es)
   struct cmd *cmd;
 
   cmd = parsepipe(ps, es);
+  // 如果有&&符号的话
   while(peek(ps, es, "&")){
+  	// 获取token
     gettoken(ps, es, 0, 0);
     cmd = backcmd(cmd);
   }
+  // 如果有分号的话
   if(peek(ps, es, ";")){
     gettoken(ps, es, 0, 0);
     cmd = listcmd(cmd, parseline(ps, es));
@@ -365,7 +379,9 @@ parsepipe(char **ps, char *es)
   struct cmd *cmd;
 
   cmd = parseexec(ps, es);
+  // 如果有|符号的话
   if(peek(ps, es, "|")){
+  	// 获取一个token
     gettoken(ps, es, 0, 0);
     cmd = pipecmd(cmd, parsepipe(ps, es));
   }
@@ -377,8 +393,9 @@ parseredirs(struct cmd *cmd, char **ps, char *es)
 {
   int tok;
   char *q, *eq;
-
+//去掉特殊字符并且判断ps中是否包含重定向字符
   while(peek(ps, es, "<>")){
+  	// 获取一个token 首字符存放在tok中
     tok = gettoken(ps, es, 0, 0);
     if(gettoken(ps, es, &q, &eq) != 'a')
       panic("missing file for redirection");
@@ -420,25 +437,31 @@ parseexec(char **ps, char *es)
   int tok, argc;
   struct execcmd *cmd;
   struct cmd *ret;
-
+// 去掉ps中的特殊字符，并且判断ps的第一个字符是否是左小括号
   if(peek(ps, es, "("))
     return parseblock(ps, es);
 
+  // 申请一个命令结构体
   ret = execcmd();
   cmd = (struct execcmd*)ret;
 
   argc = 0;
+  // 重定向
   ret = parseredirs(ret, ps, es);
+  // 如果没遇到这些字符的话 就运行
   while(!peek(ps, es, "|)&;")){
+  	//不断获取token
     if((tok=gettoken(ps, es, &q, &eq)) == 0)
       break;
     if(tok != 'a')
       panic("syntax");
+	// 存放参数
     cmd->argv[argc] = q;
     cmd->eargv[argc] = eq;
     argc++;
     if(argc >= MAXARGS)
       panic("too many args");
+	// 解析是否重定向
     ret = parseredirs(ret, ps, es);
   }
   cmd->argv[argc] = 0;

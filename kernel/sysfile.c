@@ -506,10 +506,13 @@ sys_pipe(void)
   int fd0, fd1;
   struct proc *p = myproc();
 
+// 获取读写短fd数组
   argaddr(0, &fdarray);
+// 申请pipe结构体和pipe所需要的两个文件描述符
   if(pipealloc(&rf, &wf) < 0)
     return -1;
   fd0 = -1;
+  // 申请两个fd号
   if((fd0 = fdalloc(rf)) < 0 || (fd1 = fdalloc(wf)) < 0){
     if(fd0 >= 0)
       p->ofile[fd0] = 0;
@@ -517,6 +520,7 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  // 复制fd号到用户空间的fd数组
   if(copyout(p->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
      copyout(p->pagetable, fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
     p->ofile[fd0] = 0;
